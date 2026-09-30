@@ -1,0 +1,8 @@
+node_modules/
+dist/
+reports/
+package-lock.json
+.env
+.env.*
+playwright/.auth/
+.auth/
