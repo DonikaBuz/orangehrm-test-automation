@@ -44,15 +44,20 @@ const getBaseUrl = (): string => {
   return url.href;
 };
 
-const toInteger = (
+export const toInteger = (
   value: string | undefined,
   fallback: number,
   fieldName: string,
 ): number => {
-  const parsedValue = Number(value ?? fallback);
+  const sourceValue = value ?? String(fallback);
+  const parsedValue = Number(sourceValue);
 
-  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
-    throw new Error(`${fieldName} must be a positive number.`);
+  if (
+    !Number.isSafeInteger(parsedValue) ||
+    parsedValue <= 0 ||
+    !Number.isFinite(parsedValue)
+  ) {
+    throw new Error(`${fieldName} must be a positive integer value.`);
   }
 
   return parsedValue;
@@ -62,8 +67,6 @@ export const config = {
   baseUrl: getBaseUrl(),
   browser: getBrowser(),
   headless: parseBoolean(process.env.HEADLESS, true, "HEADLESS"),
-  defaultUsername: process.env.ORANGEHRM_USERNAME ?? "Admin",
-  defaultPassword: process.env.ORANGEHRM_PASSWORD ?? "admin123",
   actionTimeout: toInteger(
     process.env.ACTION_TIMEOUT,
     15_000,
@@ -80,4 +83,5 @@ export const config = {
     height: toInteger(process.env.VIEWPORT_HEIGHT, 1_200, "VIEWPORT_HEIGHT"),
   },
   artifactsDir: "reports/artifacts",
+  recordVideo: parseBoolean(process.env.RECORD_VIDEO, true, "RECORD_VIDEO"),
 } as const;

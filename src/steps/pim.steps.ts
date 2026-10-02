@@ -1,5 +1,6 @@
 import { strict as assert } from "node:assert";
 import { Given, Then, When } from "@cucumber/cucumber";
+import path from "node:path";
 
 import type { EmployeeDetails, EmployeeProfile } from "../pages/PimPage.js";
 import type { OrangeHrmWorld } from "../support/world.js";
@@ -16,11 +17,6 @@ When("I add an employee profile", async function (this: OrangeHrmWorld) {
 
 When("I add the employee credentials", async function (this: OrangeHrmWorld) {
   const profile = requireEmployeeProfile(this);
-  this.ownedEmployees.push({
-    accountName: this.selectedAccount,
-    firstName: profile.firstName,
-    lastName: profile.lastName,
-  });
   const creation = await this.sessionManager
     .authenticatedSession()
     .pimPage.addEmployeeCredentialsAndSave(profile);
@@ -33,16 +29,12 @@ When("I add the employee credentials", async function (this: OrangeHrmWorld) {
 
 When("I create an employee", async function (this: OrangeHrmWorld) {
   const session = this.sessionManager.authenticatedSession();
-  const employee = await session.pimPage.createEmployee();
-  this.employeeUnderTest = employee;
-  this.ownedEmployees.push({
-    accountName: this.selectedAccount,
-    employeeId: employee.employeeId,
-    firstName: employee.firstName,
-    lastName: employee.lastName,
-  });
+  const creation = await session.pimPage.createEmployee();
+  this.employeeUnderTest = creation.employee;
+  this.employeeCreationNotificationVisible =
+    creation.successNotificationVisible;
   this.log(
-    `Actor=${this.selectedAccount} action=create employeeId=${employee.employeeId}`,
+    `Actor=${this.selectedAccount} action=create employeeId=${creation.employee.employeeId}`,
   );
 });
 
@@ -74,44 +66,192 @@ Then(
 );
 
 Then(
-  "the new employee's personal details should be displayed",
+  "the saved employee details should match the profile",
   async function (this: OrangeHrmWorld) {
     const expected = requireEmployeeProfile(this);
     const actual = await this.sessionManager
       .authenticatedSession()
-      .pimPage.displayedEmployeeDetails();
+      .pimPage.displayedEmployeeDetails(expected.firstName);
 
-    assert.equal(actual.firstName, expected.firstName);
-    assert.equal(actual.middleName, expected.middleName);
-    assert.equal(actual.lastName, expected.lastName);
+    assert.equal(
+      actual.firstName,
+      expected.firstName,
+      "The saved first name should match the employee profile.",
+    );
+    assert.equal(
+      actual.middleName,
+      expected.middleName,
+      "The saved middle name should match the employee profile.",
+    );
+    assert.equal(
+      actual.lastName,
+      expected.lastName,
+      "The saved last name should match the employee profile.",
+    );
     assert.ok(
       actual.employeeId,
-      "The new employee should have an assigned ID.",
+      "The saved employee should have an assigned employee ID.",
     );
   },
 );
 
-When(
-  "I update the employee's nationality",
-  async function (this: OrangeHrmWorld) {
+Then(
+  "the employee creation should be confirmed",
+  function (this: OrangeHrmWorld) {
     const employee = requireEmployee(this);
-    const session = this.sessionManager.authenticatedSession();
-    this.scenarioData.nationality =
-      await session.pimPage.updateNationality(employee);
+    assert.equal(
+      this.employeeCreationNotificationVisible,
+      true,
+      "The employee creation success notification should be shown.",
+    );
+    assert.ok(employee.employeeId, "The employee should have an assigned ID.");
+  },
+);
+
+When(
+  "I update the employee's personal details",
+  async function (this: OrangeHrmWorld) {
+    this.personalDetailsUnderTest = await this.sessionManager
+      .authenticatedSession()
+      .pimPage.updatePersonalDetails(requireEmployee(this));
+  },
+);
+
+Then("the personal details should be saved", function (this: OrangeHrmWorld) {
+  const result = this.personalDetailsUnderTest;
+  assert.ok(result, "Update the employee's personal details first.");
+  assert.equal(
+    result.successNotificationVisible,
+    true,
+    "The personal details success notification should be shown.",
+  );
+  assert.deepEqual(
+    result.actual,
+    result.expected,
+    "The saved personal details should match the values entered.",
+  );
+});
+
+When(
+  "I update the employee's custom fields",
+  async function (this: OrangeHrmWorld) {
+    this.customFieldsUnderTest = await this.sessionManager
+      .authenticatedSession()
+      .pimPage.updateCustomFields(requireEmployee(this));
+  },
+);
+
+Then("the custom fields should be saved", function (this: OrangeHrmWorld) {
+  const result = this.customFieldsUnderTest;
+  assert.ok(result, "Update the employee's custom fields first.");
+  assert.equal(
+    result.successNotificationVisible,
+    true,
+    "The custom-fields success notification should be shown.",
+  );
+  assert.deepEqual(
+    result.actual,
+    result.expected,
+    "The saved custom fields should match the values entered.",
+  );
+});
+
+When(
+  "I attach an image to the employee",
+  async function (this: OrangeHrmWorld) {
+    const attachmentPath = path.resolve(
+      process.cwd(),
+      "test-data/fixtures/employee-attachment.png",
+    );
+    this.employeeAttachmentUnderTest = await this.sessionManager
+      .authenticatedSession()
+      .pimPage.addEmployeeAttachment(requireEmployee(this), attachmentPath);
+  },
+);
+
+When(
+  "I create the PIM report {string}",
+  async function (this: OrangeHrmWorld, reportName: string) {
+    this.pimReportUnderTest = await this.sessionManager
+      .authenticatedSession()
+      .pimReportsPage.createReportUsingEmploymentStatus(reportName);
+  },
+);
+
+When(
+  "I create and delete a PIM report named {string}",
+  async function (this: OrangeHrmWorld, reportNamePrefix: string) {
+    this.pimReportCreateDeleteUnderTest = await this.sessionManager
+      .authenticatedSession()
+      .pimReportsPage.createAndDeleteReport(reportNamePrefix);
   },
 );
 
 Then(
-  "the selected nationality should be saved",
-  async function (this: OrangeHrmWorld) {
-    const expectedNationality = this.scenarioData.nationality;
-    assert.equal(typeof expectedNationality, "string");
-    const actualNationality = await this.sessionManager
-      .authenticatedSession()
-      .pimPage.currentNationality();
-    assert.equal(actualNationality, expectedNationality);
+  "the report should be saved successfully",
+  function (this: OrangeHrmWorld) {
+    assert.ok(this.pimReportUnderTest, "Create the PIM report first.");
+    assert.equal(
+      this.pimReportUnderTest.successNotificationVisible,
+      true,
+      "The report-save success notification should be shown.",
+    );
   },
 );
+
+Then(
+  "my PIM report should be created and deleted successfully",
+  function (this: OrangeHrmWorld) {
+    const result = this.pimReportCreateDeleteUnderTest;
+    assert.ok(result, "Create and delete the PIM report first.");
+    assert.equal(
+      result.creationNotificationVisible,
+      true,
+      `The success notification for creating "${result.reportName}" should be shown.`,
+    );
+    assert.equal(
+      result.reportNameDisplayed,
+      true,
+      `The full created report name "${result.reportName}" should be displayed.`,
+    );
+    assert.equal(
+      result.deletionNotificationVisible,
+      true,
+      `The success notification for deleting "${result.reportName}" should be shown.`,
+    );
+    assert.equal(
+      result.reportRemoved,
+      true,
+      `The created report "${result.reportName}" should no longer be listed.`,
+    );
+  },
+);
+
+Then("the report name should be displayed", function (this: OrangeHrmWorld) {
+  assert.ok(this.pimReportUnderTest, "Create the PIM report first.");
+  assert.equal(
+    this.pimReportUnderTest.displayedReportName,
+    this.pimReportUnderTest.reportName,
+    "The displayed report title should exactly match the full saved report name.",
+  );
+});
+
+Then("the attachment should be saved", async function (this: OrangeHrmWorld) {
+  const attachment = this.employeeAttachmentUnderTest;
+  assert.ok(attachment, "Attach the employee file first.");
+  assert.equal(
+    attachment.successNotificationVisible,
+    true,
+    "The attachment success notification should be shown.",
+  );
+  assert.equal(
+    await this.sessionManager
+      .authenticatedSession()
+      .pimPage.employeeAttachmentIsVisible(attachment.fileName),
+    true,
+    "The uploaded attachment should be listed for the employee.",
+  );
+});
 
 When(
   "I open the delete confirmation for my employee",

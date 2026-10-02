@@ -1,7 +1,7 @@
 @sanity
 Feature: Authentication
 
-  Scenario: administrator logs in successfully
+  Scenario: Administrator logs in and reaches the dashboard
     Given I open the OrangeHRM login page
-    When I log in with the administrator account
-    Then I should be on the dashboard
+    When I log in as "administrator"
+    Then I should see the dashboard

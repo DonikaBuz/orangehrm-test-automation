@@ -6,5 +6,6 @@ reports/
 !.env.example
 playwright/.auth/
 .auth/
+codegen-draft.js
 .DS_Store
 *.log

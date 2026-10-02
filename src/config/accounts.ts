@@ -1,39 +1,58 @@
-import { config } from "./env.js";
-
 export interface AccountDefinition {
   username: string;
   password: string;
-  displayName: string;
 }
 
-export const namedAccounts: Record<string, AccountDefinition> = {
+export const namedAccounts = {
   administrator: {
-    username: process.env.ORANGEHRM_USERNAME ?? config.defaultUsername,
-    password: process.env.ORANGEHRM_PASSWORD ?? config.defaultPassword,
-    displayName: "Administrator",
+    usernameEnvVar: "ADMIN_USERNAME",
+    passwordEnvVar: "ADMIN_PASSWORD",
   },
-  ...(process.env.ORANGEHRM_SECONDARY_USERNAME &&
-  process.env.ORANGEHRM_SECONDARY_PASSWORD
-    ? {
-        secondary: {
-          username: process.env.ORANGEHRM_SECONDARY_USERNAME,
-          password: process.env.ORANGEHRM_SECONDARY_PASSWORD,
-          displayName: "Secondary User",
-        },
-      }
-    : {}),
-};
+} as const;
 
 export type AccountName = keyof typeof namedAccounts;
 
-export const getAccount = (accountName: AccountName): AccountDefinition => {
-  const account = namedAccounts[accountName];
+export const isAccountName = (value: string): value is AccountName =>
+  Object.hasOwn(namedAccounts, value);
 
-  if (!account) {
-    throw new Error(`Unknown account: ${String(accountName)}`);
+export const resolveAccountName = (value: string): AccountName => {
+  if (!isAccountName(value)) {
+    throw new Error(`Unsupported account name: ${value}`);
   }
 
-  return account;
+  return value;
 };
 
-export const administratorAccount = namedAccounts.administrator;
+const getRequiredUsername = (name: string): string => {
+  const value = process.env[name]?.trim();
+
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+
+  return value;
+};
+
+const getRequiredPassword = (name: string): string => {
+  const value = process.env[name];
+
+  if (!value?.trim()) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+
+  return value;
+};
+
+export const getAccount = (accountName: AccountName): AccountDefinition => {
+  const accountConfig = namedAccounts[accountName];
+  const username = getRequiredUsername(accountConfig.usernameEnvVar);
+  const password = getRequiredPassword(accountConfig.passwordEnvVar);
+
+  return {
+    username,
+    password,
+  };
+};
+
+export const getPimTestEmployeePassword = (): string =>
+  getRequiredPassword("PIM_TEST_EMPLOYEE_PASSWORD");

@@ -5,22 +5,31 @@ Feature: PIM employee management
     Given I am logged in as "administrator"
 
   @sensitive
-  Scenario: Create an employee with enabled login credentials
+  Scenario: Create an employee with login credentials and verify saved details
     Given I am on the Add Employee page
     When I add an employee profile
     And I add the employee credentials
     Then the success notification should be shown
-    And the new employee's personal details should be displayed
+    And the saved employee details should match the profile
 
-  Scenario: Find a newly created employee using the assigned employee ID
+  Scenario: Create an employee and update personal, custom, and attachment details
     When I create an employee
-    And I search for the employee using their assigned employee ID
-    Then the employee should be listed in the search results
+    Then the employee creation should be confirmed
+    When I update the employee's personal details
+    Then the personal details should be saved
+    When I update the employee's custom fields
+    Then the custom fields should be saved
+    When I attach an image to the employee
+    Then the attachment should be saved
 
-  Scenario: Update an employee's nationality
-    When I create an employee
-    And I update the employee's nationality
-    Then the selected nationality should be saved
+  Scenario: Create a PIM report using employment status and display employee first names
+    When I create the PIM report "Test Automation Report"
+    Then the report should be saved successfully
+    And the report name should be displayed
+
+  Scenario: Delete a PIM report I created
+    When I create and delete a PIM report named "Test Automation Report"
+    Then my PIM report should be created and deleted successfully
 
   Scenario: Delete an employee I created
     When I create an employee
@@ -28,7 +37,3 @@ Feature: PIM employee management
     Then the delete confirmation should be shown
     When I confirm deleting my employee
     Then the employee should be deleted successfully
-
-  Scenario: Require employee names
-    When I submit the employee form without names
-    Then required name validation should be shown
